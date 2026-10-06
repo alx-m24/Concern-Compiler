@@ -1,42 +1,55 @@
-#include <curl/curl.h>
-#include <cstdlib>
-#include <iostream>
+#include <emscripten/bind.h>
+#include <nlohmann/json.hpp>
 #include <string>
+#include <vector>
 
-static size_t write_cb(char* p, size_t s, size_t n, void* out) {
-    static_cast<std::string*>(out)->append(p, s * n);
-    return s * n;
-}
+using Rows = std::vector<std::vector<std::string>>;
 
-std::string fetch_csv(const std::string& url) {
-    std::string body;
-    CURL* c = curl_easy_init();
-    if (!c) return "";
+static Rows parseCsv(const std::string& text) {
+    Rows rows;
+    std::vector<std::string> row;
+    std::string field;
+    bool quoted = false;
 
-    curl_easy_setopt(c, CURLOPT_URL, url.c_str());
-    curl_easy_setopt(c, CURLOPT_FOLLOWLOCATION, 1L);
-    curl_easy_setopt(c, CURLOPT_FAILONERROR, 1L);      // fail on HTTP 4xx/5xx
-    curl_easy_setopt(c, CURLOPT_WRITEFUNCTION, write_cb);
-    curl_easy_setopt(c, CURLOPT_WRITEDATA, &body);
+    for (size_t i = 0; i < text.size(); ++i) {
+        char c = text[i];
 
-    CURLcode rc = curl_easy_perform(c);
-    if (rc != CURLE_OK)
-        std::cerr << "curl: " << curl_easy_strerror(rc) << '\n';
-    curl_easy_cleanup(c);
-    return rc == CURLE_OK ? body : "";
-}
-
-int main(int argc, char** argv) {
-    if (argc < 2) {
-        std::cerr << "usage: " << argv[0] << " <csv-url>\n";
-        return EXIT_FAILURE;
+        if (quoted) {
+            if (c == '"') {
+                if (i + 1 < text.size() && text[i + 1] == '"') { field += '"'; ++i; }  // escaped quote
+                else quoted = false;
+            } else {
+                field += c;
+            }
+        } else if (c == '"') {
+            quoted = true;
+        } else if (c == ',') {
+            row.push_back(std::move(field));
+            field.clear();
+        } else if (c == '\n' || c == '\r') {
+            if (c == '\r' && i + 1 < text.size() && text[i + 1] == '\n') ++i;  // CRLF
+            if (field.empty() && row.empty()) continue;                         // skip blank lines
+            row.push_back(std::move(field));
+            field.clear();
+            rows.push_back(std::move(row));
+            row.clear();
+        } else {
+            field += c;
+        }
     }
 
-    curl_global_init(CURL_GLOBAL_DEFAULT);
-    std::string csv = fetch_csv(argv[1]);
-    curl_global_cleanup();
+    if (!field.empty() || !row.empty()) {  // last line without trailing newline
+        row.push_back(std::move(field));
+        rows.push_back(std::move(row));
+    }
+    return rows;
+}
 
-    if (csv.empty()) return EXIT_FAILURE;
-    std::cout << csv;
-    return EXIT_SUCCESS;
+// JS passes the raw file text in, gets a JSON string back.
+std::string processCsv(const std::string& text) {
+    return nlohmann::json(parseCsv(text)).dump();
+}
+
+EMSCRIPTEN_BINDINGS(csv_module) {
+    emscripten::function("processCsv", &processCsv);
 }

@@ -1,0 +1,21 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>CSV via WASM</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 2rem; }
+    table { border-collapse: collapse; margin-top: 1rem; }
+    th, td { border: 1px solid #ccc; padding: 4px 10px; text-align: left; }
+    thead th { background: #f3f3f3; }
+    #status { margin-top: 0.75rem; color: #666; }
+  </style>
+</head>
+<body>
+  <h1>CSV Upload</h1>
+  <input type="file" id="file" accept=".csv,text/csv">
+  <div id="status">Loading WASM…</div>
+  <div id="result"></div>
+  <script type="module" src="main.js"></script>
+</body>
+</html>

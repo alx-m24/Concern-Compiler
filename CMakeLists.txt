@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.24)
 
 project(Concern-Compiler
     VERSION 1.0
-    LANGUAGES C CXX            # curl is C, so C must be enabled
+    LANGUAGES CXX
 )
 
 set(CMAKE_CXX_STANDARD 23)
@@ -12,33 +12,6 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 set(BUILD_SHARED_LIBS OFF)
 
 include(FetchContent)
-
-# ---- curl: static, library only, no optional deps ----
-set(BUILD_CURL_EXE      OFF CACHE BOOL "" FORCE)
-set(BUILD_TESTING       OFF CACHE BOOL "" FORCE)
-set(HTTP_ONLY           ON  CACHE BOOL "" FORCE)
-set(CURL_USE_LIBPSL     OFF CACHE BOOL "" FORCE)
-set(CURL_USE_LIBSSH2    OFF CACHE BOOL "" FORCE)
-set(CURL_USE_LIBSSH     OFF CACHE BOOL "" FORCE)
-set(USE_LIBIDN2         OFF CACHE BOOL "" FORCE)
-set(USE_NGHTTP2         OFF CACHE BOOL "" FORCE)
-set(CURL_BROTLI         OFF CACHE BOOL "" FORCE)
-set(CURL_ZSTD           OFF CACHE BOOL "" FORCE)
-set(CURL_DISABLE_LDAP   ON  CACHE BOOL "" FORCE)
-
-# TLS backend: use the OS-native one where it exists
-if(WIN32)
-    set(CURL_USE_SCHANNEL ON CACHE BOOL "" FORCE)   # built into Windows
-    set(CURL_USE_OPENSSL  OFF CACHE BOOL "" FORCE)
-endif()
-# macOS: curl picks the native TLS automatically.
-# Linux: needs OpenSSL dev headers (see note below).
-
-FetchContent_Declare(
-    curl
-    URL https://github.com/curl/curl/releases/download/curl-8_11_1/curl-8.11.1.tar.xz
-    DOWNLOAD_EXTRACT_TIMESTAMP TRUE
-)
 
 # ---- nlohmann/json: header-only, no tests/install ----
 set(JSON_BuildTests OFF CACHE INTERNAL "")
@@ -50,7 +23,7 @@ FetchContent_Declare(
     DOWNLOAD_EXTRACT_TIMESTAMP TRUE
 )
 
-FetchContent_MakeAvailable(curl nlohmann_json)
+FetchContent_MakeAvailable(nlohmann_json)
 
 # ---- Sources ----
 file(GLOB_RECURSE SOURCES CONFIGURE_DEPENDS
@@ -61,24 +34,37 @@ file(GLOB_RECURSE SOURCES CONFIGURE_DEPENDS
 
 add_executable(${PROJECT_NAME} ${SOURCES})
 
-if(MINGW)
-    target_link_options(${PROJECT_NAME} PRIVATE
-        -static            # static libstdc++, libgcc, and winpthread
-    )
-endif()
-
 target_include_directories(${PROJECT_NAME}
     PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/include"
 )
 
 target_link_libraries(${PROJECT_NAME}
-    PRIVATE
-        CURL::libcurl
-        nlohmann_json::nlohmann_json
+    PRIVATE nlohmann_json::nlohmann_json
 )
 
 if(MSVC)
     target_compile_options(${PROJECT_NAME} PRIVATE /W4)
 elseif(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
     target_compile_options(${PROJECT_NAME} PRIVATE -Wall -Wextra -Wpedantic)
+endif()
+
+# ---- WASM (only applies when configured via emcmake) ----
+if(EMSCRIPTEN)
+    set_target_properties(${PROJECT_NAME} PROPERTIES
+        OUTPUT_NAME app                                         # emits app.js + app.wasm
+        RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/web
+    )
+
+    # nlohmann/json throws; Emscripten disables C++ exceptions by default
+    target_compile_options(${PROJECT_NAME} PRIVATE -fexceptions)
+
+    target_link_options(${PROJECT_NAME} PRIVATE
+        -fexceptions
+        -lembind
+        -sEXPORT_ES6=1
+        -sMODULARIZE=1
+        -sEXPORT_NAME=createModule
+        -sALLOW_MEMORY_GROWTH=1
+        --no-entry
+    )
 endif()
