@@ -128,9 +128,17 @@ std::string compile() {
     //   - out[tab]["records"].push_back(...) if new
    
     const std::string DEPARTMENT_HEADER_KEY = "What area would you like to provide feedback/concern on?";
-    const std::unordered_map<std::string, std::string> TAB_TO_DEPT_INPUT = {
-        { "Academics", "Academics - [TES, Course Content etc]" },
-        { "Facilities", "Campus Facilities - [Study Areas, Restrooms, Parking Space, Transportation Services etc]" },
+    const std::unordered_map<std::string, std::vector<std::string>> TAB_TO_DEPT_INPUT = {
+        { "Academics", {"Academics - [TES, Course Content etc]"} },
+        { "Facilities", {"Campus Facilities - [Study Areas, Restrooms, Parking Space, Transportation Services etc]"} },
+        { "EHS", {"Food, Retail & Commercial Services - [Hygiene, Food Prices etc]"} },
+        { "ICT", {"Technology & Online Services - [Campus WiFi, POD, Taylor's App etc]"} },
+        { "International Office", {"International Students Matters - [Student Visa, Insurance Card etc]"} },
+        { "Fees and Finance", {"Fees & Financial Assistance - [Payment, Scholarship etc]"} },
+        { "Campus Security", {""} },
+        { "Timetabling", {""} },
+        { "Student Development", {"Student Activities & Campus Life - [Clubs & Societies, Student Life Center etc]"} },
+        { "(SyopzMall) Commercial Area", {""} },
     };
 
     for (const auto& input : g_input["records"]) {
