@@ -19,28 +19,27 @@ input.addEventListener('change', async () => {
   const text = await file.text();
 
   // C++ call: string in, JSON string out
-  const rows = JSON.parse(Module.processCsv(text));
-
-  render(rows);
-  status.textContent = `${file.name}: ${rows.length} rows (including header)`;
+    const records = JSON.parse(Module.processCsv(text));
+    render(records);
+    status.textContent = `${file.name}: ${records.length} records`;
 });
 
-function render(rows) {
+function render(records) {
   result.replaceChildren();
-  if (rows.length === 0) return;
+  if (records.length === 0) return;
 
+  const cols = Object.keys(records[0]);
   const table = document.createElement('table');
-  const thead = table.createTHead().insertRow();
-  for (const h of rows[0]) {
+  const head = table.createTHead().insertRow();
+  for (const c of cols) {
     const th = document.createElement('th');
-    th.textContent = h;           // textContent, not innerHTML, so CSV content can't inject HTML
-    thead.appendChild(th);
+    th.textContent = c;
+    head.appendChild(th);
   }
-
-  const tbody = table.createTBody();
-  for (const r of rows.slice(1)) {
-    const tr = tbody.insertRow();
-    for (const cell of r) tr.insertCell().textContent = cell;
+  const body = table.createTBody();
+  for (const rec of records) {
+    const tr = body.insertRow();
+    for (const c of cols) tr.insertCell().textContent = rec[c];
   }
   result.appendChild(table);
 }

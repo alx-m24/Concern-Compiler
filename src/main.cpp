@@ -45,9 +45,22 @@ static Rows parseCsv(const std::string& text) {
     return rows;
 }
 
+using ordered_json = nlohmann::ordered_json;
+
 // JS passes the raw file text in, gets a JSON string back.
 std::string processCsv(const std::string& text) {
-    return nlohmann::json(parseCsv(text)).dump();
+    Rows rows = parseCsv(text);
+    ordered_json out = ordered_json::array();
+    if (rows.empty()) return out.dump();
+
+    const auto& header = rows[0];
+    for (size_t r = 1; r < rows.size(); ++r) {
+        ordered_json obj = ordered_json::object();
+        for (size_t c = 0; c < header.size(); ++c)
+            obj[header[c]] = c < rows[r].size() ? rows[r][c] : "";   // pad short rows
+        out.push_back(std::move(obj));
+    }
+    return out.dump();
 }
 
 EMSCRIPTEN_BINDINGS(csv_module) {
