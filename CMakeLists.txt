@@ -1,5 +1,7 @@
 cmake_minimum_required(VERSION 3.24)
 
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)   # writes build/compile_commands.json
+
 project(Concern-Compiler
     VERSION 1.0
     LANGUAGES CXX
@@ -48,10 +50,10 @@ elseif(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
     target_compile_options(${PROJECT_NAME} PRIVATE -Wall -Wextra -Wpedantic)
 endif()
 
-# ---- WASM (only applies when configured via emcmake) ----
+# ---- WASM (configure with emcmake) ----
 if(EMSCRIPTEN)
     set_target_properties(${PROJECT_NAME} PROPERTIES
-        OUTPUT_NAME app                                         # emits app.js + app.wasm
+        OUTPUT_NAME app                                   # emits app.js + app.wasm
         RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/web
     )
 
