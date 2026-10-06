@@ -1,5 +1,6 @@
 #include <emscripten/bind.h>
 #include <nlohmann/json.hpp>
+#include <unordered_map>
 #include <algorithm>
 #include <string>
 #include <vector>
@@ -125,6 +126,16 @@ std::string compile() {
     //   - pick the department tab
     //   - check the reference cells in out[tab]["records"] to skip duplicates
     //   - out[tab]["records"].push_back(...) if new
+   
+    const std::string DEPARTMENT_HEADER_KEY = "What area would you like to provide feedback/concern on?";
+    const std::unordered_map<std::string, std::string> TAB_TO_DEPT_INPUT = {
+        { "Academics", "Academics - [TES, Course Content etc]" },
+        { "Facilities", "Campus Facilities - [Study Areas, Restrooms, Parking Space, Transportation Services etc]" },
+    };
+
+    for (const auto& input : g_input["records"]) {
+        std::string dep = input.value(DEPARTMENT_HEADER_KEY, "");
+    }
 
     if (out.empty() && !g_input.empty()) {   // placeholder passthrough
         ordered_json t = ordered_json::object();
