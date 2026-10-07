@@ -6,3 +6,6 @@ build/
 !.dev.vars.example
 .env*
 !.env.example
+
+# clangd
+.clangd
