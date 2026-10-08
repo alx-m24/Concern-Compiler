@@ -9,6 +9,7 @@ const compiler = new Module.ConcernCompiler("Concern Compiler");
 
 status.textContent = 'WASM ready.';
 
+// Helper functions
 async function readTabs(file, hasTitleRow) {
   if (/\.csv$/i.test(file.name)) {
     return [{ name: file.name.replace(/\.csv$/i, ''), title: '', csv: await file.text() }];

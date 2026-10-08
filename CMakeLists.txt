@@ -58,11 +58,15 @@ if(EMSCRIPTEN)
     )
 
     # nlohmann/json throws; Emscripten disables C++ exceptions by default
-    target_compile_options(${PROJECT_NAME} PRIVATE -fexceptions)
+    target_compile_options(${PROJECT_NAME} PRIVATE 
+        -O3
+        -fexceptions
+    )
 
     target_link_options(${PROJECT_NAME} PRIVATE
         -fexceptions
         -lembind
+        -sASYNCIFY
         -sEXPORT_ES6=1
         -sMODULARIZE=1
         -sEXPORT_NAME=createModule
