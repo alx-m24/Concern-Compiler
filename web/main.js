@@ -6,6 +6,7 @@ const status = $('status');
 const Module = await createModule();
 
 const compiler = new Module.ConcernCompiler("Concern Compiler");
+compiler.init();
 
 status.textContent = 'WASM ready.';
 
@@ -38,7 +39,6 @@ async function readTabs(file, hasTitleRow) {
 
 // 1. new concerns file uploaded
 $('input').addEventListener('change', async e => {
-    console.log("Here");
     const file = e.target.files[0];
     $('compile').disabled = true;
     if (!file) return;
@@ -49,4 +49,9 @@ $('input').addEventListener('change', async e => {
     $('compile').disabled = false;
 
     $('result').textContent = compiler.getInputConcerns();
+});
+
+$('save').addEventListener('click', () => {
+    compiler.save();
+    compiler.delete();
 });

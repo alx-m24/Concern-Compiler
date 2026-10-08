@@ -8,7 +8,6 @@
 #include "api.hpp"
 
 extern "C" {
-
     EM_ASYNC_JS(char*, LLM_Call_JS, (const char* prompt), {
         const promptString = UTF8ToString(prompt);
 
@@ -130,12 +129,12 @@ extern "C" {
     }
 
     EMSCRIPTEN_KEEPALIVE
-    bool test_llm() {
+    bool test_llm(uint32_t& tokens) {
         printf("C++: before LLM call\n");
 
-        int tokens = 0;
-
-        APIResult result = LLM_Call("hello", &tokens);
+        int tokensUsed{};
+        APIResult result = LLM_Call("hello", &tokensUsed);
+        tokens = static_cast<uint32_t>(tokensUsed);
 
         if (!result.success) {
             printf(
