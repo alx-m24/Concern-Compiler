@@ -1,6 +1,7 @@
 #pragma once
 
 #include <emscripten.h>
+#include <format>
 #include <string>
 #include <cstdlib>
 #include <nlohmann/json.hpp>
@@ -73,6 +74,8 @@ extern "C" {
         }
     });
 
+}
+
     inline APIResult D1_Query(const std::string& query) {
         char* raw = D1_Query_JS(query.c_str());
     
@@ -97,6 +100,69 @@ extern "C" {
         return APIResult(result["response"].get<std::string>());
     }
 
+    inline APIResult resetDB() {
+        APIResult result = D1_Query(
+            "DROP TABLE IF EXISTS concerns;"
+            "CREATE TABLE concerns ( "
+            "    email TEXT NOT NULL, "
+            "    timestamp TEXT NOT NULL, "
+            "    category TEXT, "
+            "    keywords TEXT, "
+            "    rewritten TEXT, "
+            "    count INTEGER NOT NULL DEFAULT 1, "
+            "    department TEXT, "
+            "    references TEXT, "
+            "    PRIMARY KEY (email, timestamp) "
+            ");"
+        );
+
+        if (!result.success) return result;
+
+        result = D1_Query(
+            "DROP TABLE IF EXISTS keywords;"
+            "CREATE TABLE keywords ( "
+            "    id INTEGER PRIMARY KEY AUTOINCREMENT, "
+            "    keyword TEXT NOT NULL "
+            ");"
+        );
+
+        if (!result.success) return result;
+
+        result = D1_Query(
+            "CREATE TABLE IF NOT EXISTS submissions ( "
+            "    email TEXT NOT NULL, "
+            "    timestamp TEXT NOT NULL, "
+            "    PRIMARY KEY (email, timestamp) "
+            ");"
+        );
+
+        return result;
+    }
+
+APIResult searchConcernByCSVIndex(size_t index) {
+    return D1_Query(
+            std::format(
+                "SELECT * "
+                "FROM concerns c "
+                "WHERE c.'references' LIKE '%{}%';",
+                index
+            ));
+}
+
+    inline std::string sqlEscape(const std::string& value) {
+        std::string result;
+        result.reserve(value.size() + 2);
+    
+        for (char c : value) {
+            if (c == '\'')
+                result += "''";
+            else
+                result += c;
+        }
+    
+        return "'" + result + "'";
+    }
+
     EMSCRIPTEN_KEEPALIVE
     bool test_D1() {
         printf("C++: before D1 call\n");
@@ -116,4 +182,3 @@ extern "C" {
 
         return true;
     }
-}

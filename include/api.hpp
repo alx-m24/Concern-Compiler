@@ -4,12 +4,15 @@
 
 #include <string>
 
-struct APIResult {
-    bool success;
-    int status;
-    std::string response;
-    std::string error;
-
-    APIResult(std::string response) : success(true), status(200), response(response), error("") {}
-    APIResult(std::string error, int status) : success(false), status(status), response(""), error(error) {}
-};
+extern "C" {
+    struct APIResult {
+        bool success;
+        int status;
+        std::string response;
+        std::string error;
+    
+        APIResult() = default;
+        APIResult(std::string response) : success(true), status(200), response(response), error("") {}
+        APIResult(std::string error, int status) : success(false), status(status), response(""), error(error) {}
+    };
+}

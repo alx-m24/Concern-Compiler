@@ -6,9 +6,25 @@ const status = $('status');
 const Module = await createModule();
 
 const compiler = new Module.ConcernCompiler("Concern Compiler");
-compiler.init();
 
-status.textContent = 'WASM ready.';
+console.log("calling init");
+let ok;
+try {
+    ok = await compiler.init();
+    console.log("init resolved:", ok, typeof ok);
+    if (ok) {
+        updateNeuronBar();
+        const file_input = $('input');
+        file_input.disabled = false;
+    
+       status.textContent = 'WASM ready.';
+    }
+    else {
+        status.textContent = 'Init failed.';
+    }
+} catch (e) {
+    console.error("init threw:", e);
+}
 
 // Helper functions
 async function readTabs(file, hasTitleRow) {
@@ -37,6 +53,32 @@ async function readTabs(file, hasTitleRow) {
   });
 }
 
+function updateNeuronBar() {
+    const raw = Number(compiler.getNeuronPercentage());
+
+    if (!Number.isFinite(raw)) {
+        return;
+    }
+
+    const pct = Math.min(Math.max(raw, 0), 100);
+
+    $('neurons').value = pct;
+    $('neuronsText').textContent = `${pct.toFixed(1)}%`;
+}
+
+window.compilationProgress = 0;
+
+function updateProgressBar() {
+    const pct = Math.min(
+        Math.max(Number(window.compilationProgress), 0),
+        100
+    );
+    console.log(typeof pct, pct);
+
+    $('progress').value = pct;
+    $('progressText').textContent = `${pct.toFixed(0)}%`;
+}
+
 // 1. new concerns file uploaded
 $('input').addEventListener('change', async e => {
     const file = e.target.files[0];
@@ -44,14 +86,27 @@ $('input').addEventListener('change', async e => {
     if (!file) return;
 
     const tabs = await readTabs(file, false);
-    const n = compiler.inputData(tabs[0].csv);   // first tab only
+    const n = compiler.inputData(tabs[0].csv, file.name);   // first tab only
     status.textContent = `Loaded ${n} concerns from ${file.name}.`;
     $('compile').disabled = false;
 
     $('result').textContent = compiler.getInputConcerns();
 });
 
-$('save').addEventListener('click', () => {
-    compiler.save();
-    compiler.delete();
+$('compile').addEventListener('click', async () => {
+    $('compile').disabled = true;
+
+    const timer = setInterval(() => {
+        updateProgressBar();
+        updateNeuronBar();
+    }, 250);
+
+    try {
+        $('result').textContent = await compiler.compile();
+    } finally {
+        clearInterval(timer);
+        updateProgressBar();   // final refresh so the bars show the end state
+        updateNeuronBar();
+        $('compile').disabled = false;
+    }
 });

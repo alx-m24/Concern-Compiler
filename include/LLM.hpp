@@ -1,10 +1,12 @@
 #pragma once
 
 #include <emscripten.h>
+#include <functional>
 #include <string>
 #include <cstdlib>
 #include <nlohmann/json.hpp>
 
+#include "D1.hpp"
 #include "api.hpp"
 
 extern "C" {
@@ -49,17 +51,17 @@ extern "C" {
                     const text =
                         result.choices[0].message.content;
 
-                    const tokens =
-                        result.usage?.total_tokens ?? 0;
+                    const neurons =
+                        result.usage?.neurons ?? 0;
 
                     console.log("LLM response:", text);
-                    console.log("LLM tokens:", tokens);
+                    console.log("LLM neurons:", neurons);
 
                     output = JSON.stringify({
                         success: true,
                         status: response.status,
                         response: text,
-                        tokens: tokens
+                        neurons: neurons
                     });
 
                 } catch (error) {
@@ -94,10 +96,11 @@ extern "C" {
             return ptr;
         }
     });
+}
 
     inline APIResult LLM_Call(
         const std::string& prompt,
-        int* tokens = nullptr
+        float* neurons = nullptr
     ) {
         char* raw = LLM_Call_JS(prompt.c_str());
 
@@ -119,8 +122,8 @@ extern "C" {
             return APIResult(error, status);
         }
 
-        if (tokens) {
-            *tokens = result["tokens"].get<int>();
+        if (neurons) {
+            *neurons = result["neurons"].get<float>();
         }
 
         return APIResult(
@@ -128,13 +131,12 @@ extern "C" {
         );
     }
 
+extern "C" {
     EMSCRIPTEN_KEEPALIVE
-    bool test_llm(uint32_t& tokens) {
+    bool test_llm(float& neurons) {
         printf("C++: before LLM call\n");
 
-        int tokensUsed{};
-        APIResult result = LLM_Call("hello", &tokensUsed);
-        tokens = static_cast<uint32_t>(tokensUsed);
+        APIResult result = LLM_Call("hello", &neurons);
 
         if (!result.success) {
             printf(
@@ -152,11 +154,71 @@ extern "C" {
         );
 
         printf(
-            "C++: tokens: %d\n",
-            tokens
+            "C++: neurons: %f\n",
+            neurons
         );
 
         return true;
     }
-
 }
+
+class LLM {
+    private:
+        std::string currentDate{};
+        float totalneuronsUsed{};
+
+        const float MAX_NEURONS = 10'000;
+
+    public:
+        LLM() = default;
+
+        bool init() {
+            APIResult dateResult = D1_Query("SELECT date('now') AS current_date;");
+            auto dateJSON = nlohmann::json::parse(dateResult.response);
+            currentDate = dateJSON["results"][0]["current_date"].get<std::string>();
+        
+            APIResult neuronsResult = D1_Query("SELECT * FROM settings WHERE key = 'LLM_Neurons';");
+            auto neuronsJSON = nlohmann::json::parse(neuronsResult.response);
+            auto& rows = neuronsJSON["results"];
+            if (!rows.empty() && rows[0]["Date Entered"].get<std::string>() == currentDate) {
+                totalneuronsUsed = std::stof(rows[0]["value"].get<std::string>());
+                printf("C++ totalneuronsUsed: %f\n", totalneuronsUsed);
+            }
+        
+            if (getNeuronPercentage() >= 100.0f) { printf("C++: neuron cap reached\n"); return false; }
+
+            float neuronsUsed{};
+            if (!test_llm(neuronsUsed)) { printf("C++: LLM Call Failed\n"); return false; }
+
+            totalneuronsUsed += neuronsUsed;
+
+            save();
+
+            return true;
+        }
+
+        float getNeuronPercentage() const {
+            return totalneuronsUsed / MAX_NEURONS * 100.0f;
+        }
+
+        APIResult Call(const std::string& prompt) {
+            float neurons{};
+            APIResult result = LLM_Call(prompt, &neurons);
+            totalneuronsUsed += neurons;
+
+            save();
+            
+            return result;
+        }
+
+    private:
+        void save() {
+            std::string sqlQuery =
+                "UPDATE settings SET "
+                "value = " + std::to_string(totalneuronsUsed) +
+                ", 'Date Entered' = '" + currentDate + "' "
+                "WHERE key = 'LLM_Neurons';";
+
+            APIResult writeneuronsUsed =  D1_Query(sqlQuery);
+        }
+};

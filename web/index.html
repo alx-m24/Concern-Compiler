@@ -20,7 +20,7 @@
     
         <section>
             <label for="input">1. New concerns (.csv, single tab)</label>
-            <input type="file" id="input" accept=".csv,.xlsx,.xls">
+            <input type="file" disabled="true" id="input" accept=".csv,.xlsx,.xls">
         </section>
 
         <section>
@@ -28,12 +28,24 @@
             <button id="download" disabled>Download .xlsx</button>
         </section>
 
-        <div id="status">Loading WASM…</div>
-        <div id="result"></div>
-    
-        
-        <button id="save">Save</button>
+        <section>
+            <label for="neurons">Daily neuron usage</label>
+            <progress id="neurons" max="100" value="0"></progress>
+            <span id="neuronsText">0%</span>
+        </section>
 
+        <div id="status">Loading WASM…</div>
+
+        <section>
+            <label for="progress">Compile progress</label>
+            <progress id="progress" max="100" value="0"></progress>
+            <span id="progressText">0%</span>
+        </section>
+
+        <section>
+            <div id="result"></div>
+        </section>
+    
         <script src="xlsx.full.min.js"></script>
         <script type="module" src="main.js"></script>
     </body>

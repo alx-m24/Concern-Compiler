@@ -59,8 +59,8 @@ if(EMSCRIPTEN)
 
     # nlohmann/json throws; Emscripten disables C++ exceptions by default
     target_compile_options(${PROJECT_NAME} PRIVATE 
-        -O3
         -fexceptions
+        -Werror=return-type
     )
 
     target_link_options(${PROJECT_NAME} PRIVATE
