@@ -121,6 +121,10 @@ class ConcernCompiler {
             return inputConcerns.dump(-1, ' ', false, nlohmann::json::error_handler_t::replace);
         }
 
+        bool clearData() {
+            return resetDB().success;
+        }
+
         std::string compile() {
             static constexpr std::string_view CLASSIFY_PROMPT_TEMPLATE = R"PROMPT(You classify feedback submitted by students to a university student council. Reply with ONLY a JSON array. No markdown, no explanation. Each element describes exactly one issue: {{"category": "...", "keywords": ["...", "..."], "rewritten": "..."}}
 category: exactly one department name from this list, spelled exactly as written:
@@ -412,7 +416,8 @@ EMSCRIPTEN_BINDINGS(ConcernCompiler) {
         .constructor<std::string>()
         .function("init", &ConcernCompiler::init, emscripten::async())
         .function("compile", &ConcernCompiler::compile, emscripten::async())
+        .function("clearData", &ConcernCompiler::clearData, emscripten::async())
         .function("inputData", &ConcernCompiler::inputData)
-        .function("getNeuronPercentage", &ConcernCompiler::getNeuronPercentage)
-        .function("getInputConcerns", &ConcernCompiler::getInputConcerns);
+        .function("getInputConcerns", &ConcernCompiler::getInputConcerns)
+        .function("getNeuronPercentage", &ConcernCompiler::getNeuronPercentage);
 }

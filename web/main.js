@@ -73,7 +73,6 @@ function updateProgressBar() {
         Math.max(Number(window.compilationProgress), 0),
         100
     );
-    console.log(typeof pct, pct);
 
     $('progress').value = pct;
     $('progressText').textContent = `${pct.toFixed(0)}%`;
@@ -91,6 +90,17 @@ $('input').addEventListener('change', async e => {
     $('compile').disabled = false;
 
     $('result').textContent = compiler.getInputConcerns();
+});
+
+$('reset_db').addEventListener('click', async () => {
+    $('compile').disabled = true;
+
+    try {
+        const ok = await compiler.clearData();
+        console.log("JS: Successfully cleared database data");
+    } finally {
+        $('compile').disabled = false;
+    }
 });
 
 $('compile').addEventListener('click', async () => {

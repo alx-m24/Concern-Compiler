@@ -104,6 +104,7 @@ extern "C" {
         APIResult result = D1_Query(
             "DROP TABLE IF EXISTS concerns;"
             "CREATE TABLE concerns ( "
+            "    id INTEGER PRIMARY KEY AUTOINCREMENT, "
             "    email TEXT NOT NULL, "
             "    timestamp TEXT NOT NULL, "
             "    category TEXT, "
@@ -111,8 +112,7 @@ extern "C" {
             "    rewritten TEXT, "
             "    count INTEGER NOT NULL DEFAULT 1, "
             "    department TEXT, "
-            "    references TEXT, "
-            "    PRIMARY KEY (email, timestamp) "
+            "    'references' TEXT "
             ");"
         );
 
@@ -129,7 +129,8 @@ extern "C" {
         if (!result.success) return result;
 
         result = D1_Query(
-            "CREATE TABLE IF NOT EXISTS submissions ( "
+            "DROP TABLE IF EXISTS submissions;"
+            "CREATE TABLE submissions ( "
             "    email TEXT NOT NULL, "
             "    timestamp TEXT NOT NULL, "
             "    PRIMARY KEY (email, timestamp) "
