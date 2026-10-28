@@ -177,6 +177,11 @@ class ConcernCompiler {
                 return out;
             };
 
+            enum class CONCERN_SOURCE {
+                FULL_FCF,
+                SHORTENED_FCF
+            } concernSource;
+
             const auto& records = inputConcerns["records"];
             for (size_t rowIndex = 0; rowIndex < records.size(); ++rowIndex) {
                 if (llm.getNeuronPercentage() >= 100.0f) { printf("C++: neuron cap reached\n"); break; }
@@ -188,7 +193,18 @@ class ConcernCompiler {
 
                 reportCompilationProgress(progress);
 
-                const std::string email = concern.value("Email address", "");
+                if (concern.contains("Email address")) {
+                    concernSource = CONCERN_SOURCE::FULL_FCF;
+                }
+                else if (concern.contains("Student Email")) {
+                    concernSource = CONCERN_SOURCE::SHORTENED_FCF;
+                }
+                else {
+                    ++stats.FailedNum;
+                    continue;
+                }
+    
+                const std::string email = (concernSource == CONCERN_SOURCE::FULL_FCF) ? concern.value("Email address", "") : concern.value("Student Email", "");
                 const std::string ts    = concern.value("Timestamp", "");
 
                 // Early out if this exact input has already been compiled
@@ -224,14 +240,15 @@ class ConcernCompiler {
                 //    Category: Facilities      NOTE: Category can be "Invalid"
                 //    Keywords: ["water dispenser", "Block E", "not dispensing"]
                 //    Rewritten: "The water dispenser in Block E is not dispensing water."
+                const bool full = (concernSource == CONCERN_SOURCE::FULL_FCF);
                 std::string prompt = std::format(
                     CLASSIFY_PROMPT_TEMPLATE,
                     departments,
                     existingKeywordList(),
-                    concern.value("What area would you like to provide feedback/concern on?", ""),
-                    concern.value("Feedback or Concern Area", ""),
-                    concern.value("What is your concern(s)?", ""),
-                    concern.value("If you have any specific suggestions or preferred solutions, please let us know here.", "")
+                    full ? concern.value("What area would you like to provide feedback/concern on?", "") : std::string{},
+                    full ? concern.value("Feedback or Concern Area", "") : std::string{},
+                    full ? concern.value("What is your concern(s)?", "") : concern.value("What is the student's concern", ""),
+                    full ? concern.value("If you have any specific suggestions or preferred solutions, please let us know here.", "") : concern.value("Any specific suggestions or preferred solutions?", "")
                 );
 
                 r = llm.Call(prompt);

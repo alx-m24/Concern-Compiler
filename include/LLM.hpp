@@ -17,8 +17,8 @@ extern "C" {
 
         try {
             const response = await fetch(
-                "https://tusc-concern-compiler.alexandremohamudally.workers.dev/api/llm",
-                // "https://tusc-concern-compiler.alexandremohamudally-tusc.workers.dev/api/llm",
+                // "https://tusc-concern-compiler.alexandremohamudally.workers.dev/api/llm",
+                "https://tusc-concern-compiler.alexandremohamudally-tusc.workers.dev/api/llm",
                 {
                     method: "POST",
                     headers: {
