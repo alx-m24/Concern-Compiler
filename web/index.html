@@ -1,54 +1,213 @@
 <!doctype html>
-<html>
-    <head>
-        <meta charset="utf-8">
-        <title>Concern Compiler</title>
-        <style>
-            body { font-family: system-ui, sans-serif; margin: 2rem; max-width: 70rem; }
-            section { margin-bottom: 1.25rem; }
-            label { display: block; font-weight: 600; margin-bottom: 0.25rem; }
-            button { padding: 6px 14px; }
-            h3 { margin-bottom: 0; }
-            table { border-collapse: collapse; margin-top: 0.5rem; }
-            th, td { border: 1px solid #ccc; padding: 4px 10px; text-align: left; }
-            thead th { background: #f3f3f3; }
-            #status { color: #666; margin: 0.75rem 0; }
-        </style>
-    </head>
-    <body>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Concern Compiler</title>
+    <style>
+        :root {
+            --maroon: #8f2f2b;
+            --maroon-dark: #6e211e;
+            --blush: #f7eeee;
+            --paper: #ffffff;
+            --ink: #2a1d1c;
+            --muted: #75635f;
+            --line: #e6d6d3;
+            --ok: #3e7b52;
+            --warn: #b7791f;
+            --danger: #b3261e;
+            --serif: "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+            --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            background: var(--blush);
+            color: var(--ink);
+            font: 15px/1.5 var(--sans);
+        }
+
+        header {
+            background: var(--maroon);
+            color: #fff;
+            padding: 1.25rem 1.5rem;
+        }
+        header h1 {
+            margin: 0;
+            font: 600 1.6rem/1.2 var(--serif);
+        }
+        header p {
+            margin: 0.25rem 0 0;
+            color: #f0d9d7;
+        }
+
+        main {
+            display: grid;
+            grid-template-columns: minmax(280px, 22rem) minmax(0, 1fr);
+            gap: 1.25rem;
+            max-width: 82rem;
+            margin: 0 auto;
+            padding: 1.25rem 1.5rem 3rem;
+        }
+        @media (max-width: 820px) {
+            main { grid-template-columns: 1fr; padding: 1rem; }
+        }
+
+        .panel {
+            background: var(--paper);
+            border: 1px solid var(--line);
+            border-radius: 6px;
+            padding: 1rem 1.1rem;
+        }
+        .stack { display: flex; flex-direction: column; gap: 1rem; min-width: 0; }
+
+        h2 {
+            margin: 0 0 0.6rem;
+            font: 600 1.1rem/1.3 var(--serif);
+        }
+        .step-num {
+            display: inline-grid;
+            place-items: center;
+            width: 1.4rem; height: 1.4rem;
+            margin-right: 0.4rem;
+            border-radius: 50%;
+            background: var(--maroon);
+            color: #fff;
+            font: 600 0.8rem/1 var(--sans);
+        }
+        .hint { margin: 0.5rem 0 0; color: var(--muted); font-size: 0.85rem; }
+
+        .row { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
+
+        input[type=file] { max-width: 100%; font-size: 0.85rem; }
+        input[type=file]:disabled { opacity: 0.5; }
+
+        button {
+            font: 600 0.9rem var(--sans);
+            padding: 0.5rem 0.9rem;
+            border-radius: 5px;
+            border: 1px solid var(--maroon);
+            background: var(--paper);
+            color: var(--maroon);
+            cursor: pointer;
+        }
+        button:hover:not(:disabled) { background: var(--blush); }
+        button.primary { background: var(--maroon); color: #fff; }
+        button.primary:hover:not(:disabled) { background: var(--maroon-dark); }
+        button.danger { border-color: var(--danger); color: var(--danger); }
+        button:disabled { opacity: 0.45; cursor: not-allowed; }
+        :focus-visible { outline: 3px solid #e0a39f; outline-offset: 2px; }
+
+        /* meters */
+        .meter-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 0.3rem; }
+        .meter-head span:first-child { font-weight: 600; }
+        .meter-head span:last-child { font-variant-numeric: tabular-nums; color: var(--muted); }
+        .bar { height: 10px; background: #f0e4e2; border-radius: 5px; overflow: hidden; }
+        .bar > i {
+            display: block; height: 100%; width: 0;
+            background: var(--maroon);
+            transition: width 0.25s ease;
+        }
+        .bar.neurons > i { background: var(--ok); }
+        .bar.neurons.warn > i { background: var(--warn); }
+        .bar.neurons.danger > i { background: var(--danger); }
+
+        .times {
+            display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;
+            margin-top: 0.8rem;
+        }
+        .times div { background: var(--blush); border-radius: 5px; padding: 0.4rem 0.6rem; }
+        .times dt { color: var(--muted); font-size: 0.78rem; }
+        .times dd { margin: 0; font: 600 1.15rem var(--serif); font-variant-numeric: tabular-nums; }
+
+        #status { margin: 0; color: var(--muted); min-height: 1.5em; }
+        #status.error { color: var(--danger); }
+
+        /* results */
+        .filters { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-bottom: 0.8rem; }
+        .chip {
+            font: 500 0.82rem var(--sans);
+            padding: 0.25rem 0.65rem;
+            border-radius: 999px;
+            border: 1px solid var(--line);
+            background: var(--paper);
+            color: var(--ink);
+        }
+        .chip b { color: var(--maroon); margin-left: 0.25rem; font-variant-numeric: tabular-nums; }
+        .chip[aria-pressed=true] { background: var(--maroon); border-color: var(--maroon); color: #fff; }
+        .chip[aria-pressed=true] b { color: #fff; }
+
+        .table-wrap { overflow-x: auto; }
+        table { border-collapse: collapse; width: 100%; }
+        th, td { padding: 0.5rem 0.7rem; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+        thead th { background: var(--blush); font-weight: 600; white-space: nowrap; }
+        td.num, th.num { text-align: center; font-variant-numeric: tabular-nums; }
+        td.refs { color: var(--muted); font-size: 0.82rem; white-space: pre-line; }
+        td.dept { white-space: nowrap; color: var(--muted); font-size: 0.85rem; }
+
+        .empty { color: var(--muted); padding: 1.5rem 0; text-align: center; }
+
+        @media (prefers-reduced-motion: reduce) {
+            .bar > i { transition: none; }
+        }
+    </style>
+</head>
+<body>
+    <header>
         <h1>Concern Compiler</h1>
-    
-        <section>
-            <label for="input">1. New concerns (.csv, single tab)</label>
-            <input type="file" disabled="true" id="input" accept=".csv,.xlsx,.xls">
-            <button id="import">Import Existing</button>
-        </section>
+        <p>Turns Feedback &amp; Concern form responses into a count-ranked list for each department.</p>
+    </header>
 
-        <section>
-            <button id="compile" disabled>Compile</button>
-            <button id="reset_db">Clear Database</button>
-            <button id="download" disabled>Download .xlsx</button>
-        </section>
+    <main>
+        <div class="stack">
+            <section class="panel">
+                <h2><span class="step-num">1</span>Load responses</h2>
+                <input type="file" disabled id="input" accept=".csv,.xlsx,.xls" aria-label="Concerns file">
+                <p class="hint">Only the first tab is read.</p>
+                <div class="row" style="margin-top:0.6rem">
+                    <button id="import">Load saved results</button>
+                </div>
+            </section>
 
-        <section>
-            <label for="neurons">Daily neuron usage</label>
-            <progress id="neurons" max="100" value="0"></progress>
-            <span id="neuronsText">0%</span>
-        </section>
+            <section class="panel">
+                <h2><span class="step-num">2</span>Compile</h2>
+                <div class="row">
+                    <button id="compile" class="primary" disabled>Compile</button>
+                    <button id="reset_db" class="danger">Clear database</button>
+                </div>
 
-        <div id="status">Loading WASM…</div>
+                <div style="margin-top:1rem">
+                    <div class="meter-head"><span>Progress</span><span id="progressText">0%</span></div>
+                    <div class="bar" role="progressbar" aria-label="Compile progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="progress"><i></i></div>
+                    <dl class="times">
+                        <div><dt>Elapsed</dt><dd id="elapsed">0:00</dd></div>
+                        <div><dt>Remaining</dt><dd id="eta">–</dd></div>
+                    </dl>
+                </div>
+            </section>
 
-        <section>
-            <label for="progress">Compile progress</label>
-            <progress id="progress" max="100" value="0"></progress>
-            <span id="progressText">0%</span>
-        </section>
+            <section class="panel">
+                <h2><span class="step-num">3</span>Export</h2>
+                <button id="download" disabled>Download .xlsx</button>
+            </section>
 
-        <section>
-            <div id="result"></div>
-        </section>
-    
-        <script src="xlsx-style.min.js"></script>
-        <script type="module" src="main.js"></script>
-    </body>
+            <section class="panel">
+                <div class="meter-head"><span>Daily neuron usage</span><span id="neuronsText">0%</span></div>
+                <div class="bar neurons" id="neurons" role="progressbar" aria-label="Daily neuron usage" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><i></i></div>
+            </section>
+        </div>
+
+        <div class="stack">
+            <p id="status" role="status" aria-live="polite">Loading WASM…</p>
+            <section class="panel" id="result" aria-label="Results">
+                <div class="empty">Load a responses file or saved results to see them here.</div>
+            </section>
+        </div>
+    </main>
+
+    <script src="xlsx-style.min.js"></script>
+    <script type="module" src="main.js"></script>
+</body>
 </html>

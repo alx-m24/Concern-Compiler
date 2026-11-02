@@ -9,6 +9,11 @@
 #include "D1.hpp"
 #include "api.hpp"
 
+// Global, same pattern as window.compilationProgress: JS just reads window.neuronPercentage
+EM_JS(void, reportNeuronPercentage, (float percentage), {
+    window.neuronPercentage = percentage;
+});
+
 extern "C" {
     EM_ASYNC_JS(char*, LLM_Call_JS, (const char* prompt), {
         const promptString = UTF8ToString(prompt);
@@ -17,8 +22,8 @@ extern "C" {
 
         try {
             const response = await fetch(
-                // "https://tusc-concern-compiler.alexandremohamudally.workers.dev/api/llm",
-                "https://tusc-concern-compiler.alexandremohamudally-tusc.workers.dev/api/llm",
+                "https://tusc-concern-compiler.alexandremohamudally.workers.dev/api/llm",
+                // "https://tusc-concern-compiler.alexandremohamudally-tusc.workers.dev/api/llm",
                 {
                     method: "POST",
                     headers: {
@@ -185,6 +190,7 @@ class LLM {
                 totalneuronsUsed = std::stof(rows[0]["value"].get<std::string>());
                 printf("C++ totalneuronsUsed: %f\n", totalneuronsUsed);
             }
+            publish();
         
             if (getNeuronPercentage() >= 100.0f) { printf("C++: neuron cap reached\n"); return false; }
 
@@ -213,7 +219,11 @@ class LLM {
         }
 
     private:
+        void publish() const { reportNeuronPercentage(getNeuronPercentage()); }
+
         void save() {
+            publish();
+
             std::string sqlQuery =
                 "UPDATE settings SET "
                 "value = " + std::to_string(totalneuronsUsed) +

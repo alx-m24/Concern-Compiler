@@ -61,29 +61,72 @@ class ConcernCompiler {
         }
 
     private:
+        // Stable ids so code (and the prompt examples) can refer to a department without
+        // hard-coding its display name. Renaming a department only touches DEPARTMENTS below.
+        enum class Dept { Technology, Admin, Facilities, Food, Activities, International, Fees, Academics, Accessibility, Others };
+
         struct Department {
-            std::string name;    // exactly as the model must answer (no trailing space)
-            std::string scope;   // one-line description shown to the model
+            Dept id;
+            std::string name;                  // exactly as the model must answer; also the key in main.js DEPT_STYLE (<= 31 chars, Excel tab limit)
+            std::string scope;                 // one-line description shown to the model
+            std::vector<std::string> routes;   // examples of issues that belong HERE (this is the routing rulebook)
         };
-        
-        // inside the class
+
         inline static const std::vector<Department> DEPARTMENTS = {
-            {"Academics",                    "teaching, lecturers, course content, lecture slides, exams, assessments, group assignments, TES"},
-            {"Facilities",                   "buildings and grounds: lifts, restrooms, seating, study areas, labs and equipment, plug points, air-conditioning, parking, buggy and shuttle bus, water dispensers"},
-            {"EHS",                          "environment, health and safety: hygiene hazards, pests, mould, smoking and vaping, injuries, tripping hazards, unsafe electrical faults, clinic"},
-            {"ICT",                          "Wi-Fi, Taylor's app, myTIMeS, student portal, campus software, computers"},
-            {"International Office",         "visas, immigration, international student support"},
-            {"Fees and Finance",             "tuition fees, payments, refunds, scholarships"},
-            {"Campus Security",              "gates, access control, outsiders on campus, theft, lockers, security guards, threats"},
-            {"Timetabling",                  "class scheduling, clashes, class times, gaps between classes, OMR"},
-            {"Student Development",          "clubs and societies, Student Life Center, welfare and wellbeing, internships and careers"},
-            {"(SyopzMall) Commercial Area",  "Syopz Mall, food outlets, food prices, convenience store, retail"},
+            {Dept::Technology, "Technology & Online Services",
+                "Wi-Fi, POD, Taylor's app, myTIMeS, student portal, campus software, computers",
+                {"computer lab availability", "the POD"}},
+            {Dept::Admin, "Student Services & Admin",
+                "registration and enrolment, letters and documents, student records, administrative processes",
+                {}},
+            {Dept::Facilities, "Campus Facilities",
+                "buildings and grounds: lifts, restrooms, seating, study areas, labs and equipment, plug points, air-conditioning, parking, buggy and shuttle bus, water dispensers; also safety and security",
+                {"crowded study areas or seating",
+                 "all restroom problems (smell, dirty, not flushed, wet floors, missing tissue or soap, crowded)",
+                 "lab equipment such as weighing machines, clippers and sewing machines",
+                 "faulty plug points, even if the student calls them dangerous",
+                 "too few parking spaces or a rough road",
+                 "gate opening hours, access to a room, lockers that are not secure, not enough lockers",
+                 "animals and pests, mould, smoking, injuries, holes in the ground, tripping hazards"}},
+            {Dept::Food, "Food, Retail & Commercial",
+                "Syopz Mall, food outlets, food hygiene, food prices, convenience store, retail",
+                {"a crowded food court", "heat, crowding or seating at Syopz Mall", "a bad smell or hygiene problem at a food outlet"}},
+            {Dept::Activities, "Student Activities & Life",
+                "clubs and societies, Student Life Center, sports facilities, welfare and wellbeing, internships and careers",
+                {"the Student Life Center", "sports facilities", "the football court"}},
+            {Dept::International, "International Students",
+                "student visas, immigration, insurance card, international student support",
+                {}},
+            {Dept::Fees, "Fees & Financial Assistance",
+                "tuition fees, payments, refunds, scholarships",
+                {"the cost of parking"}},
+            {Dept::Academics, "Academics",
+                "teaching, lecturers, course content, lecture slides, exams, assessments, group assignments, TES, class timetable and scheduling",
+                {"not enough lab samples", "class timetables and clashes"}},
+            {Dept::Accessibility, "Accessibility & Inclusion",
+                "wheelchair availability, wheelchair ramps, accessible lifts and restrooms, support for students with disabilities",
+                {"wheelchair availability", "wheelchair ramps", "restrooms or lifts that students with disabilities cannot use"}},
+            {Dept::Others, "Others",
+                "ONLY when no other department fits",
+                {}},
         };
-        
+
+        static const Department& department(Dept id) {
+            for (const auto& d : DEPARTMENTS) if (d.id == id) return d;
+            return DEPARTMENTS.back();   // unreachable while every Dept has an entry
+        }
+
+        // The numbered list that goes into the prompt: scope plus, when present, routing examples.
         static std::string departmentList() {
             std::string out;
-            for (const auto& d : DEPARTMENTS)
+            for (const auto& d : DEPARTMENTS) {
                 out += d.name + " - " + d.scope + "\n";
+                if (d.routes.empty()) continue;
+                out += "  Belongs here: ";
+                for (size_t i = 0; i < d.routes.size(); ++i)
+                    out += (i ? "; " : "") + d.routes[i];
+                out += "\n";
+            }
             return out;
         }
 
@@ -93,7 +136,7 @@ class ConcernCompiler {
         static const Department* findDepartment(const std::string& category) {
             const std::string c = norm(category);
             for (const auto& d : DEPARTMENTS) if (c.starts_with(norm(d.name))) return &d;
-            if (c.contains("syopz") || c.contains("commercial")) return &DEPARTMENTS.back();
+            if (c == "other") return &department(Dept::Others);          // model dropped the trailing s
             printf("C++: unknown category '%s'\n", category.c_str());   // confirms the cause
             return nullptr;
         }
@@ -136,6 +179,7 @@ class ConcernCompiler {
             CompileStats stats{};
             const std::string departments = departmentList();            
             compiledConcernsNum = {};
+            reportCompilationProgress(0.0f);
 
             APIResult existingKeywordresult = D1_Query(
                 "SELECT keyword FROM keywords;"
@@ -183,15 +227,17 @@ class ConcernCompiler {
             } concernSource;
 
             const auto& records = inputConcerns["records"];
-            for (size_t rowIndex = 0; rowIndex < records.size(); ++rowIndex) {
+            const float totalRows = static_cast<float>(records.size());
+            size_t rowIndex = 0;
+            for (; rowIndex < records.size(); ++rowIndex) {
                 if (llm.getNeuronPercentage() >= 100.0f) { printf("C++: neuron cap reached\n"); break; }
 
                 const auto& concern = records[rowIndex];
                 const std::string refId = inputFileName + "|" + std::to_string(rowIndex + 2); // +2 to account for headers in spreadsheet
 
-                const float progress = static_cast<float>(++compiledConcernsNum) / static_cast<float>(inputConcerns["records"].size()) * 100.0f;
-
-                reportCompilationProgress(progress);
+                // progress = rows fully finished so far (the one starting now is not counted yet)
+                compiledConcernsNum = static_cast<uint32_t>(rowIndex);
+                reportCompilationProgress(static_cast<float>(rowIndex) / totalRows * 100.0f);
 
                 if (concern.contains("Email address")) {
                     concernSource = CONCERN_SOURCE::FULL_FCF;
@@ -248,7 +294,12 @@ class ConcernCompiler {
                     full ? concern.value("What area would you like to provide feedback/concern on?", "") : std::string{},
                     full ? concern.value("Feedback or Concern Area", "") : std::string{},
                     full ? concern.value("What is your concern(s)?", "") : concern.value("What is the student's concern", ""),
-                    full ? concern.value("If you have any specific suggestions or preferred solutions, please let us know here.", "") : concern.value("Any specific suggestions or preferred solutions?", "")
+                    full ? concern.value("If you have any specific suggestions or preferred solutions, please let us know here.", "") : concern.value("Any specific suggestions or preferred solutions?", ""),
+                    // category names used by the worked examples in the prompt ({6}..{9})
+                    department(Dept::Technology).name,
+                    department(Dept::Academics).name,
+                    department(Dept::International).name,
+                    department(Dept::Facilities).name
                 );
 
                 r = llm.Call(prompt);
@@ -385,6 +436,10 @@ class ConcernCompiler {
                     }
                 }
             }
+
+            // rowIndex == records.size() when everything ran; smaller if the neuron cap stopped us
+            compiledConcernsNum = static_cast<uint32_t>(rowIndex);
+            reportCompilationProgress(totalRows > 0 ? static_cast<float>(rowIndex) / totalRows * 100.0f : 100.0f);
 
             printf("C++: Invalid inputs num: %u\n", stats.InvalidNum);
             printf("C++: Failed inputs num: %u\n", stats.FailedNum);
