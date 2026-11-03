@@ -40,7 +40,6 @@ extern "C" {
             console.log("LLM response:", body);
 
             let output;
-
             if (!response.ok) {
                 output = JSON.stringify({
                     success: false,
